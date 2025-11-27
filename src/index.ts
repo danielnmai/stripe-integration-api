@@ -9,58 +9,50 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2023-10-16',
 });
 
-app.use(express.json());
-
 app.post('/webhook', express.raw({ type: 'application/json' }), async (req: Request, res: Response) => {
-  // const sig = req.headers['stripe-signature'];
-  // const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
   
-  // if (!sig || !webhookSecret) {
-  //   console.error('Missing stripe-signature header or webhook secret');
-  //   return res.status(400).json({ 
-  //     error: 'Missing stripe-signature header or webhook secret',
-  //     received: false 
-  //   });
-  // }
+  if (!sig || !webhookSecret) {
+    console.error('Missing stripe-signature header or webhook secret');
+    return res.status(400).json({ 
+      error: 'Missing stripe-signature header or webhook secret',
+      received: false 
+    });
+  }
 
-  // let event: Stripe.Event;
+  let event: Stripe.Event;
 
-  // try {
- 
-  //   const rawBody = req.body;
+  try {
+    const rawBody = req.body;
     
-  //   // Verify the webhook signature
-  //   event = stripe.webhooks.constructEvent(
-  //     req.body.toString(),
-  //     sig,
-  //     webhookSecret
-  //   );
-  // } catch (err) {
-  //   const error = err as Error;
-  //   console.error('Webhook signature verification failed:', {
-  //     error: error.message,
-  //     signature: sig,
-  //     hasSecret: !!webhookSecret
-  //   });
-  //   return res.status(400).json({ 
-  //     error: `Webhook signature verification failed: ${error.message}`,
-  //     received: false 
-  //   });
-  // }
+    event = stripe.webhooks.constructEvent(
+      rawBody,
+      sig,
+      'whsec_3S74S28CVhFCpNm8IIbjC7CuUcrVj5Va'
+    );
+  } catch (err) {
+    const error = err as Error;
+    console.error('Webhook signature verification failed:', {
+      error: error.message,
+      signature: sig,
+      hasSecret: !!webhookSecret
+    });
+    return res.status(400).json({ 
+      error: `Webhook signature verification failed: ${error.message}`,
+      received: false 
+    });
+  }
 
-  // // Validate event structure
-  // if (!event || !event.type || !event.data) {
-  //   console.error('Invalid event structure:', event);
-  //   return res.status(400).json({ 
-  //     error: 'Invalid event structure',
-  //     received: false 
-  //   });
-  // }
+  if (!event || !event.type || !event.data) {
+    console.error('Invalid event structure:', event);
+    return res.status(400).json({ 
+      error: 'Invalid event structure',
+      received: false 
+    });
+  }
 
-  const event = req.body as Stripe.Event;
-
-  // Handle the checkout.session.completed event
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
     
@@ -203,6 +195,9 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req: Requ
 
   return res.status(200).json({ received: true });
 });
+
+app.use(express.json());
+
 
 app.get('/ping', (_req: Request, res: Response) => {
   res.json({ status: 'ok' });

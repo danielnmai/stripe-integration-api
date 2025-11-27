@@ -97,9 +97,9 @@ async function main() {
   );
 
   // Test 6: Valid structure but missing webhook secret
-  console.log('\n📝 Note: To test missing webhook secret, unset STRIPE_WEBHOOK_SECRET env variable');
+  console.log('Note: To test missing webhook secret, unset STRIPE_WEBHOOK_SECRET env variable');
   
-  console.log('\n✅ Testing complete!');
+  console.log('Testing complete!');
 }
 
 main().catch(console.error);
