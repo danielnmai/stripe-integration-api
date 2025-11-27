@@ -72,6 +72,7 @@ This document describes the error handling mechanisms in place for Stripe webhoo
 - Manual webhook replay
 
 **Recovery Steps**:
+
 1. **No action needed** - The system handles duplicates gracefully
 2. Processing continues for user updates (idempotent operations)
 3. Check logs to verify if user was updated correctly
@@ -79,15 +80,18 @@ This document describes the error handling mechanisms in place for Stripe webhoo
 ### Scenario 3: Database Connection Failure
 
 **Symptoms**:
+
 - Log: `Critical error processing webhook`
 - Response: `500 Internal Server Error`
 
 **Causes**:
+
 - Database server down
 - Connection pool exhausted
 - Network issues
 
 **Recovery Steps**:
+
 1. Check database connection status
 2. Verify `DATABASE_URL` is correct
 3. Check database server logs
@@ -97,18 +101,22 @@ This document describes the error handling mechanisms in place for Stripe webhoo
 ### Scenario 4: Stripe API Failure (Line Items)
 
 **Symptoms**:
+
 - Log: `Failed to fetch line items for session {id}`
 - Response: `200 OK` (checkout session still saved)
 
 **Causes**:
+
 - Stripe API temporarily unavailable
 - Rate limiting
 - Invalid session ID
 
 **Recovery Steps**:
+
 1. Check Stripe API status
 2. Verify session ID is valid
 3. Manually process the session:
+
    ```typescript
    // Use Prisma Studio or script to:
    // 1. Find the checkout session
@@ -119,18 +127,22 @@ This document describes the error handling mechanisms in place for Stripe webhoo
 ### Scenario 5: User Creation/Update Failure
 
 **Symptoms**:
+
 - Log: `Failed to update/create user for {email}`
 - Response: `200 OK` (checkout session saved)
 
 **Causes**:
+
 - Email validation failure
 - Database constraint violation
 - Missing required fields
 
 **Recovery Steps**:
+
 1. Check the error message in logs
 2. Verify user data structure
 3. Manually create/update user:
+
    ```typescript
    await prisma.user.upsert({
      where: { email: 'customer@example.com' },
