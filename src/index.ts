@@ -30,7 +30,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req: Requ
     event = stripe.webhooks.constructEvent(
       rawBody,
       sig,
-      'whsec_3S74S28CVhFCpNm8IIbjC7CuUcrVj5Va'
+      webhookSecret
     );
   } catch (err) {
     const error = err as Error;
