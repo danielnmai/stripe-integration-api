@@ -5,6 +5,7 @@ A TypeScript-based Express.js server with Stripe webhook integration and Prisma 
 ## Setup
 
 1. Install dependencies:
+
 ```bash
 npm install
 ```
@@ -14,26 +15,31 @@ npm install
    - Set the `DATABASE_URL` environment variable (e.g., `postgresql://user:password@localhost:5432/mydb`)
 
 3. Generate Prisma Client:
+
 ```bash
 npm run prisma:generate
 ```
 
 4. Run database migrations:
+
 ```bash
 npm run prisma:migrate
 ```
 
 5. Set environment variables:
+
 - `STRIPE_SECRET_KEY`: Your Stripe secret key
 - `STRIPE_WEBHOOK_SECRET`: Your Stripe webhook signing secret
 - `DATABASE_URL`: Your database connection string
 
 6. Build TypeScript:
+
 ```bash
 npm run build
 ```
 
 7. Start the server:
+
 ```bash
 npm start
 ```
@@ -43,20 +49,24 @@ The server will run on port 8000 by default (or the port specified in the `PORT`
 ## Endpoints
 
 ### POST /webhook
+
 Accepts Stripe webhooks and handles `checkout.session.completed` events.
 
 The endpoint:
+
 - Verifies the webhook signature using Stripe's webhook secret
 - Processes `checkout.session.completed` events
 - Saves checkout session data to the database using Prisma
 - Returns appropriate responses for other event types
 
 ### GET /status
+
 Health check endpoint that returns `{ status: 'ok' }`.
 
 ## Usage
 
 1. Start the server:
+
 ```bash
 npm start
 ```
@@ -83,6 +93,7 @@ The project uses TypeScript. Source files are in the `src/` directory and compil
 ### Database Schema
 
 The Prisma schema includes a `CheckoutSession` model that stores:
+
 - Stripe session ID
 - Customer ID
 - Amount and currency
@@ -106,6 +117,7 @@ ngrok http 8000
 Then use the ngrok URL (e.g., `https://abc123.ngrok.io/webhook`) as your Stripe webhook endpoint.
 
 Make sure to:
+
 1. Set up a local database or use a cloud database
 2. Run migrations before testing
 3. Build the TypeScript code before starting the server
