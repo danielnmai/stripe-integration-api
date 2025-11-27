@@ -9,10 +9,43 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserType {
+  Free
+  GreatAwakener
+  VirtualOracle
+  NonMember
+}
+
+model User {
+  id          String   @id @default(uuid())
+  firstName   String
+  lastName    String
+  email       String   @unique
+  hasAstrology Boolean  @default(false)
+  userType    UserType @default(Free)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  price       Float
+  stripeId    String   @unique
+  stripeActive Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("products")
+}
+
 model CheckoutSession {
   id            String   @id @default(uuid())
   stripeSessionId String @unique
   customerId    String?
+  customerEmail String?
   amountTotal   Int
   currency      String
   paymentStatus String

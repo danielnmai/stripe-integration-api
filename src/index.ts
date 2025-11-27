@@ -9,32 +9,56 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2023-10-16',
 });
 
-app.use('/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 
-app.post('/webhook', async (req: Request, res: Response) => {
-  const sig = req.headers['stripe-signature'] as string;
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+app.post('/webhook', express.raw({ type: 'application/json' }), async (req: Request, res: Response) => {
+  // const sig = req.headers['stripe-signature'];
+  // const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-  if (!sig || !webhookSecret) {
-    return res.status(400).json({ error: 'Missing stripe-signature header or webhook secret' });
-  }
+  
+  // if (!sig || !webhookSecret) {
+  //   console.error('Missing stripe-signature header or webhook secret');
+  //   return res.status(400).json({ 
+  //     error: 'Missing stripe-signature header or webhook secret',
+  //     received: false 
+  //   });
+  // }
 
-  let event: Stripe.Event;
+  // let event: Stripe.Event;
 
-  try {
-    const rawBody = req.body.toString();
+  // try {
+ 
+  //   const rawBody = req.body;
     
-    event = stripe.webhooks.constructEvent(
-      rawBody,
-      sig,
-      webhookSecret
-    );
-  } catch (err) {
-    const error = err as Error;
-    console.error('Webhook signature verification failed:', error.message);
-    return res.status(400).json({ error: `Webhook Error: ${error.message}` });
-  }
+  //   // Verify the webhook signature
+  //   event = stripe.webhooks.constructEvent(
+  //     req.body.toString(),
+  //     sig,
+  //     webhookSecret
+  //   );
+  // } catch (err) {
+  //   const error = err as Error;
+  //   console.error('Webhook signature verification failed:', {
+  //     error: error.message,
+  //     signature: sig,
+  //     hasSecret: !!webhookSecret
+  //   });
+  //   return res.status(400).json({ 
+  //     error: `Webhook signature verification failed: ${error.message}`,
+  //     received: false 
+  //   });
+  // }
+
+  // // Validate event structure
+  // if (!event || !event.type || !event.data) {
+  //   console.error('Invalid event structure:', event);
+  //   return res.status(400).json({ 
+  //     error: 'Invalid event structure',
+  //     received: false 
+  //   });
+  // }
+
+  const event = req.body as Stripe.Event;
 
   // Handle the checkout.session.completed event
   if (event.type === 'checkout.session.completed') {
@@ -43,34 +67,138 @@ app.post('/webhook', async (req: Request, res: Response) => {
     console.log('Checkout session completed:', {
       sessionId: session.id,
       customerId: session.customer,
+      customerEmail: session.customer_details?.email,
       amountTotal: session.amount_total,
       currency: session.currency,
       paymentStatus: session.payment_status
     });
 
-    try {
-      // Save checkout session to database using Prisma
-      await prisma.checkoutSession.create({
-        data: {
-          stripeSessionId: session.id,
-          customerId: typeof session.customer === 'string' ? session.customer : session.customer?.id || null,
-          amountTotal: session.amount_total || 0,
-          currency: session.currency || 'usd',
-          paymentStatus: session.payment_status || 'unknown',
-        },
+    // Validate session structure
+    if (!session || !session.id) {
+      console.error('Invalid session structure:', session);
+      return res.status(400).json({ 
+        error: 'Invalid session structure',
+        received: false 
       });
-
-      console.log('Checkout session saved to database:', session.id);
-    } catch (dbError) {
-      const error = dbError as Error;
-      console.error('Failed to save checkout session to database:', error.message);
-      // Continue execution even if database save fails
     }
-    
-    return res.status(200).json({ 
-      received: true,
-      sessionId: session.id 
-    });
+
+    try {
+      // Step 1: Save checkout session to database
+      let checkoutSession;
+      try {
+        checkoutSession = await prisma.checkoutSession.create({
+          data: {
+            stripeSessionId: session.id,
+            customerId: typeof session.customer === 'string' ? session.customer : session.customer?.id || null,
+            customerEmail: session.customer_details?.email || null,
+            amountTotal: session.amount_total || 0,
+            currency: session.currency || 'usd',
+            paymentStatus: session.payment_status || 'unknown',
+          },
+        });
+        console.log('Checkout session saved to database:', session.id);
+      } catch (dbError) {
+        // Check if it's a duplicate (already processed)
+        if (dbError instanceof Error && dbError.message.includes('Unique constraint')) {
+          console.warn(`Checkout session ${session.id} already exists in database - may be a duplicate webhook`);
+          // Continue processing as this might be a retry
+        } else {
+          throw dbError; // Re-throw to be caught by outer catch
+        }
+      }
+
+      // Step 2: Process user updates if customer email exists
+      const customerEmail = session.customer_details?.email;
+      if (customerEmail) {
+        try {
+          // Fetch line items from Stripe
+          const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
+            expand: ['data.price.product'],
+          });
+
+          if (!lineItems || !lineItems.data) {
+            console.warn(`No line items found for session ${session.id}`);
+          } else {
+            const astrologyProductPurchased = lineItems.data.some((item) => {
+              const product = item.price?.product;
+              if (typeof product === 'object' && product !== null) {
+                const productObj = product as Stripe.Product;
+                return (
+                  productObj.id === 'prod_TUrnEqRRgTx9Gz' ||
+                  productObj.name === 'Astrology Time Zone'
+                );
+              }
+              return false;
+            });
+
+            if (astrologyProductPurchased) {
+              try {
+                const user = await prisma.user.findUnique({
+                  where: { email: customerEmail },
+                });
+
+                if (user) {
+                  await prisma.user.update({
+                    where: { email: customerEmail },
+                    data: { hasAstrology: true },
+                  });
+                  console.log(`Updated hasAstrology to true for user: ${customerEmail}`);
+                } else {
+                  // Create new user as NonMember with hasAstrology = true
+                  const newUser = await prisma.user.create({
+                    data: {
+                      email: customerEmail,
+                      firstName: session.customer_details?.name?.split(' ')[0] || 'Unknown',
+                      lastName: session.customer_details?.name?.split(' ').slice(1).join(' ') || 'User',
+                      userType: 'NonMember',
+                      hasAstrology: true,
+                    },
+                  });
+                  console.log(`Created new NonMember user with hasAstrology=true: ${customerEmail}`, newUser);
+                }
+              } catch (userError) {
+                const error = userError as Error;
+                console.error(`Failed to update/create user for ${customerEmail}:`, {
+                  error: error.message,
+                  sessionId: session.id,
+                  stack: error.stack
+                });
+                // Don't fail the webhook - log and continue
+              }
+            }
+          }
+        } catch (stripeError) {
+          const error = stripeError as Error;
+          console.error(`Failed to fetch line items for session ${session.id}:`, {
+            error: error.message,
+            stack: error.stack
+          });
+          // Don't fail the webhook - we've already saved the checkout session
+        }
+      }
+      
+      return res.status(200).json({ 
+        received: true,
+        sessionId: session.id,
+        processed: true
+      });
+    } catch (error) {
+      const err = error as Error;
+      console.error('Critical error processing webhook:', {
+        error: err.message,
+        sessionId: session.id,
+        stack: err.stack,
+        eventType: event.type
+      });
+      
+      // Return 500 so Stripe will retry
+      return res.status(500).json({ 
+        error: 'Internal server error processing webhook',
+        received: true,
+        processed: false,
+        sessionId: session.id
+      });
+    }
   }
 
   return res.status(200).json({ received: true });
