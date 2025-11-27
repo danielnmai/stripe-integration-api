@@ -50,9 +50,7 @@ async function testWebhookFailure(scenario: string, payload: any, headers: Recor
 }
 
 async function main() {
-  console.log('🚀 Webhook Failure Testing Script');
-  console.log('='.repeat(50));
-
+  console.log('Webhook Failure Testing Script');
   // Test 1: Missing signature
   await testWebhookFailure(
     'Missing Stripe Signature',
