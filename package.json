@@ -1,0 +1,39 @@
+{
+  "name": "stripe-integration-api",
+  "version": "1.0.0",
+  "description": "Express.js server with Stripe webhook integration",
+  "main": "dist/index.js",
+  "keywords": [
+    "express",
+    "stripe",
+    "webhook",
+    "typescript",
+    "prisma"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.0.1",
+    "@prisma/client": "^7.0.1",
+    "@types/pg": "^8.15.6",
+    "express": "^4.18.2",
+    "pg": "^8.16.3",
+    "stripe": "^14.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.0",
+    "@types/pg": "^8.10.9",
+    "prisma": "^7.0.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.5.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio"
+  }
+}
