@@ -75,7 +75,6 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req: Requ
     }
 
     try {
-      // Step 1: Save checkout session to database
       let checkoutSession;
       try {
         checkoutSession = await prisma.checkoutSession.create({
@@ -90,20 +89,16 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req: Requ
         });
         console.log('Checkout session saved to database:', session.id);
       } catch (dbError) {
-        // Check if it's a duplicate (already processed)
         if (dbError instanceof Error && dbError.message.includes('Unique constraint')) {
           console.warn(`Checkout session ${session.id} already exists in database - may be a duplicate webhook`);
-          // Continue processing as this might be a retry
         } else {
-          throw dbError; // Re-throw to be caught by outer catch
+          throw dbError;
         }
       }
 
-      // Step 2: Process user updates if customer email exists
       const customerEmail = session.customer_details?.email;
       if (customerEmail) {
         try {
-          // Fetch line items from Stripe
           const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
             expand: ['data.price.product'],
           });
@@ -165,7 +160,6 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req: Requ
             error: error.message,
             stack: error.stack
           });
-          // Don't fail the webhook - we've already saved the checkout session
         }
       }
       
